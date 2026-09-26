@@ -39,8 +39,8 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     .text(BTN.block)
     .row()
     .text(BTN.settings)
-    .resized()
-    .persistent();
+    // Без .persistent(): пользователь может свернуть клавиатуру кнопкой в поле ввода
+    .resized();
   /** Ожидаемый ввод после нажатия кнопки; ключ — `${chatId}:${userId}` */
   private readonly pending = new Map<string, PendingAction>();
 
