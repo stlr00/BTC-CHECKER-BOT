@@ -1,0 +1,38 @@
+{
+  "name": "btc-mempool-bot",
+  "version": "1.0.0",
+  "description": "Telegram-бот: уведомления о движении средств на BTC-адресах через mempool.space API",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "nest build",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "start:dev": "nest start --watch --exec \"node --env-file-if-exists=.env\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@grammyjs/auto-retry": "^2.0.2",
+    "@nestjs/common": "^12.1.0",
+    "@nestjs/config": "^12.0.1",
+    "@nestjs/core": "^12.1.0",
+    "@nestjs/event-emitter": "^12.0.1",
+    "grammy": "^1.46.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "private": true,
+  "devDependencies": {
+    "@nestjs/cli": "^12.0.7",
+    "@nestjs/testing": "^12.1.0",
+    "@swc/core": "^1.16.2",
+    "@types/node": "^26.6.3",
+    "typescript": "^6.0.3",
+    "unplugin-swc": "^2.0.0",
+    "vitest": "^5.0.2"
+  },
+  "type": "module"
+}
