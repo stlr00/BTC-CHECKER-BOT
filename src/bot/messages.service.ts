@@ -14,12 +14,12 @@ import {
   duration,
   escapeHtml,
   feeRate,
+  formatTime,
   num,
   plural,
   shortAddress,
   money,
   shortHash,
-  utcTime,
 } from './format.js';
 
 const SLOW_BLOCK_MS = 30 * 60_000;
@@ -62,6 +62,10 @@ export class MessagesService {
     return money(sats, prices, { sign, currency: settings.currency, showOthers: short ? false : settings.showOthers });
   }
 
+  private time(chatId: number, unixSeconds: number): string {
+    return formatTime(unixSeconds, this.storage.settingsOf(chatId).timeZone);
+  }
+
   private direction(net: number): string {
     if (net > 0) return '📥 Входящая транзакция';
     if (net < 0) return '📤 Исходящая транзакция';
@@ -91,7 +95,7 @@ export class MessagesService {
         '',
         `Адрес: ${who}`,
         `Сумма: <b>${amount}</b>`,
-        `Блок: ${this.blockLink(tx.status.block_height)}`,
+        `Блок: ${this.blockLink(tx.status.block_height)} · ${this.time(chatId, tx.status.block_time ?? 0)}`,
         `Tx: ${this.txLink(tx.txid)}`,
       ].join('\n');
     }
@@ -162,6 +166,7 @@ export class MessagesService {
       lines.push(
         `Статус: ✅ <b>${num(conf)} ${plural(conf, 'подтверждение', 'подтверждения', 'подтверждений')}</b>`,
         `Блок: ${this.blockLink(tx.status.block_height)}, ${ago(tx.status.block_time ?? 0)}`,
+        `Время блока: ${this.time(chatId, tx.status.block_time ?? 0)}`,
       );
     } else {
       const rbf = tx.vin.some((input) => input.sequence < 0xfffffffe);
@@ -218,7 +223,7 @@ export class MessagesService {
     return lines.join('\n');
   }
 
-  async blockReport(): Promise<string> {
+  async blockReport(chatId: number): Promise<string> {
     const blocks = await this.api.recentBlocks();
     const [block] = blocks;
     const oldest = blocks[blocks.length - 1];
@@ -229,7 +234,7 @@ export class MessagesService {
       `⛏ <b>Последний блок</b> ${this.blockLink(block.height)}`,
       '',
       `Прошло с момента добычи: <b>${sinceMs > 0 ? duration(sinceMs) : 'только что'}</b>`,
-      `Время блока: ${utcTime(block.timestamp)}`,
+      `Время блока: ${this.time(chatId, block.timestamp)}`,
     ];
     const seen = this.watcher.lastBlock;
     if (seen?.height === block.height) {

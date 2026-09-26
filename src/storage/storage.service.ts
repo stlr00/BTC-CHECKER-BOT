@@ -21,6 +21,7 @@ export interface AddressRecord {
 }
 
 export type Currency = 'btc' | 'usd' | 'rub';
+export type TimeZone = 'utc' | 'kaliningrad' | 'moscow';
 
 /** Настройки отображения для чата */
 export interface ChatSettings {
@@ -28,9 +29,11 @@ export interface ChatSettings {
   currency: Currency;
   /** Показывать ли остальные валюты после основной */
   showOthers: boolean;
+  /** Часовой пояс для отображения времени */
+  timeZone: TimeZone;
 }
 
-export const DEFAULT_CHAT_SETTINGS: ChatSettings = { currency: 'btc', showOthers: true };
+export const DEFAULT_CHAT_SETTINGS: ChatSettings = { currency: 'btc', showOthers: true, timeZone: 'utc' };
 
 interface State {
   version: 1;

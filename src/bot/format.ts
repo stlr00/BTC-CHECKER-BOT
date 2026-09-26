@@ -1,6 +1,6 @@
 import type { Tx } from '../mempool/mempool.types.js';
 import type { Prices } from '../prices/prices.service.js';
-import type { ChatSettings, Currency } from '../storage/storage.service.js';
+import type { ChatSettings, Currency, TimeZone } from '../storage/storage.service.js';
 
 const SATS = 100_000_000;
 
@@ -79,8 +79,32 @@ export function ago(unixSeconds: number): string {
   return `${duration(Date.now() - unixSeconds * 1000)} назад`;
 }
 
-export function utcTime(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+export const TIME_ZONES: Record<TimeZone, { iana: string; label: string; city: string | null }> = {
+  utc: { iana: 'UTC', label: 'UTC', city: null },
+  kaliningrad: { iana: 'Europe/Kaliningrad', label: 'UTC+2', city: 'Калининград' },
+  moscow: { iana: 'Europe/Moscow', label: 'UTC+3', city: 'Москва' },
+};
+
+export function timeZoneName(tz: TimeZone): string {
+  const { label, city } = TIME_ZONES[tz];
+  return city ? `${label} ${city}` : label;
+}
+
+/** «2026-09-26 08:31:07 UTC+3» в часовом поясе чата. */
+export function formatTime(unixSeconds: number, tz: TimeZone = 'utc'): string {
+  const { iana, label } = TIME_ZONES[tz];
+  // Шведская локаль даёт ISO-подобный формат «YYYY-MM-DD HH:mm:ss»
+  const text = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: iana,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(unixSeconds * 1000));
+  return `${text} ${label}`;
 }
 
 export function feeRate(tx: Tx): string | null {

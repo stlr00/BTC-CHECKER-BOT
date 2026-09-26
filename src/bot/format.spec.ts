@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { btc, duration, money, plural } from './format.js';
+import { btc, duration, formatTime, money, plural } from './format.js';
 
 describe('format', () => {
   it('форматирует сумму в BTC со знаком', () => {
@@ -38,6 +38,13 @@ describe('format', () => {
     expect(duration(12 * 60_000 + 34_000)).toBe('12 мин 34 сек');
     expect(duration(2 * 3_600_000 + 5 * 60_000)).toBe('2 ч 5 мин');
     expect(duration(-1000)).toBe('0 сек');
+  });
+
+  it('форматирует время в часовом поясе чата', () => {
+    const ts = Date.UTC(2026, 8, 26, 22, 30, 5) / 1000;
+    expect(formatTime(ts)).toBe('2026-09-26 22:30:05 UTC');
+    expect(formatTime(ts, 'kaliningrad')).toBe('2026-09-27 00:30:05 UTC+2');
+    expect(formatTime(ts, 'moscow')).toBe('2026-09-27 01:30:05 UTC+3');
   });
 
   it('склоняет существительные', () => {

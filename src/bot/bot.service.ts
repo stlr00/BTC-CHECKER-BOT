@@ -4,10 +4,10 @@ import { autoRetry } from '@grammyjs/auto-retry';
 import { Bot, Context, GrammyError, InlineKeyboard, Keyboard } from 'grammy';
 import { appConfig, type AppConfig } from '../config/app.config.js';
 import { MempoolApiError } from '../mempool/mempool-api.service.js';
-import { StorageService, type ChatSettings, type Currency } from '../storage/storage.service.js';
+import { StorageService, type ChatSettings, type Currency, type TimeZone } from '../storage/storage.service.js';
 import { WATCHER_TX_EVENT, type WatcherTxEvent } from '../watcher/watcher.events.js';
 import { WatcherService } from '../watcher/watcher.service.js';
-import { escapeHtml, shortAddress } from './format.js';
+import { escapeHtml, shortAddress, TIME_ZONES, timeZoneName } from './format.js';
 import { MessagesService } from './messages.service.js';
 import { parseTarget, type Target } from './parse.js';
 import { RefsService } from './refs.service.js';
@@ -64,7 +64,7 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
       { command: 'list', description: 'Мои адреса' },
       { command: 'check', description: 'Проверить: /check <адрес или txid>' },
       { command: 'block', description: 'Сколько прошло с последнего блока' },
-      { command: 'settings', description: 'Валюта отображения сумм' },
+      { command: 'settings', description: 'Валюта и часовой пояс' },
     ]);
     this.bot
       .start({ onStart: (me) => this.logger.log(`Бот @${me.username} запущен`) })
@@ -142,13 +142,16 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
         await ctx.reply(await this.messages.summaryReport(ctx.chat!.id), HTML);
       });
     });
-    bot.callbackQuery(/^set:(?:cur:(btc|usd|rub)|others)$/, async (ctx) => {
+    bot.callbackQuery(/^set:(?:cur:(btc|usd|rub)|tz:(utc|kaliningrad|moscow)|others)$/, async (ctx) => {
       const chatId = ctx.chat!.id;
       const currency = ctx.match[1] as Currency | undefined;
-      const settings = this.storage.updateSettings(
-        chatId,
-        currency ? { currency } : { showOthers: !this.storage.settingsOf(chatId).showOthers },
-      );
+      const timeZone = ctx.match[2] as TimeZone | undefined;
+      const patch: Partial<ChatSettings> = currency
+        ? { currency }
+        : timeZone
+          ? { timeZone }
+          : { showOthers: !this.storage.settingsOf(chatId).showOthers };
+      const settings = this.storage.updateSettings(chatId, patch);
       await ctx.answerCallbackQuery({ text: 'Сохранено' });
       await this.showSettings(ctx, true, settings);
     });
@@ -182,7 +185,7 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
         `<b>${BTN.list}</b> — список подписок, проверка и отписка`,
         `<b>${BTN.check}</b> — баланс адреса или статус транзакции по txid`,
         `<b>${BTN.block}</b> — сколько прошло с момента добычи последнего блока`,
-        `<b>${BTN.settings}</b> — в какой валюте показывать суммы: BTC, USD или RUB`,
+        `<b>${BTN.settings}</b> — валюта сумм (BTC, USD, RUB) и часовой пояс`,
         '',
         'Можно просто прислать адрес или txid — я его проверю.',
       ].join('\n'),
@@ -284,16 +287,23 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     }
     keyboard
       .row()
-      .text(current.showOthers ? '🙈 Скрыть остальные валюты' : '👁 Показывать остальные валюты', 'set:others');
+      .text(current.showOthers ? '🙈 Скрыть остальные валюты' : '👁 Показывать остальные валюты', 'set:others')
+      .row();
+    for (const tz of Object.keys(TIME_ZONES) as TimeZone[]) {
+      const name = timeZoneName(tz);
+      keyboard.text(current.timeZone === tz ? `✅ ${name}` : name, `set:tz:${tz}`);
+    }
 
     const text = [
       '⚙️ <b>Настройки</b>',
       '',
       `Основная валюта: <b>${CURRENCIES[current.currency]}</b>`,
       `Остальные валюты: ${current.showOthers ? 'показываются после основной' : 'скрыты'}`,
+      `Часовой пояс: <b>${timeZoneName(current.timeZone)}</b>`,
       '',
       'Основная валюта используется для балансов, сумм транзакций и уведомлений.',
       'Если курс временно недоступен, сумма будет показана в BTC.',
+      'Часовой пояс применяется ко всем датам и времени в сообщениях.',
     ].join('\n');
     await this.send(ctx, text, keyboard, edit);
   }
@@ -349,7 +359,7 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
   private async sendBlock(ctx: Context, edit = false): Promise<void> {
     await this.safely(ctx, async () => {
       if (!edit) await ctx.replyWithChatAction('typing');
-      const text = await this.messages.blockReport();
+      const text = await this.messages.blockReport(ctx.chat!.id);
       await this.send(ctx, text, new InlineKeyboard().text('🔄 Обновить', 'rblk'), edit);
     });
   }
