@@ -27,6 +27,8 @@ export const appConfig = registerAs('app', () => {
     mempoolWs: env.MEMPOOL_WS ?? `${mempoolUrl.replace(/^http/, 'ws')}/api/v1/ws`,
     // Курс ЦБ РФ в JSON (зеркало cbr.ru), нужен для пересчёта в рубли
     rubRateUrl: env.RUB_RATE_URL ?? 'https://www.cbr-xml-daily.ru/daily_json.js',
+    // Ссылка на исходники в справке, настройках и описании бота
+    sourceUrl: env.SOURCE_URL ?? 'https://github.com/stlr00/BTC-CHECKER-BOT',
     pollIntervalMs: int(env.POLL_INTERVAL_SEC, 60) * 1000,
     requestGapMs: int(env.REQUEST_GAP_MS, 250),
     dataFile: env.DATA_FILE ?? 'data/state.json',

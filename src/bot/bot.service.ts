@@ -73,9 +73,41 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
       { command: 'block', description: 'Сколько прошло с последнего блока' },
       { command: 'settings', description: 'Валюта и часовой пояс' },
     ]);
+    await this.ensureDescriptions();
     this.bot
       .start({ onStart: (me) => this.logger.log(`Бот @${me.username} запущен`) })
       .catch((err: Error) => this.logger.error(`Long polling остановлен: ${err.message}`));
+  }
+
+  /**
+   * Описание (видно в пустом чате до /start) и «About» профиля со ссылкой на исходники.
+   * Заполняются, только если пустые, чтобы не затирать текст, заданный в @BotFather.
+   */
+  private async ensureDescriptions(): Promise<void> {
+    const api = this.bot.api;
+    try {
+      const [{ description }, { short_description }] = await Promise.all([
+        api.getMyDescription(),
+        api.getMyShortDescription(),
+      ]);
+      if (!description) {
+        await api.setMyDescription(
+          [
+            'Следит за биткоин-адресами через mempool.space: присылает уведомления о новых транзакциях ' +
+              'и их первом подтверждении, показывает баланс в BTC / USD / RUB и время с последнего блока.',
+            '',
+            `Исходный код: ${this.config.sourceUrl}`,
+          ].join('\n'),
+        );
+      }
+      if (!short_description) {
+        await api.setMyShortDescription(
+          `Уведомления о транзакциях на BTC-адресах. Код: ${this.config.sourceUrl.replace(/^https?:\/\//, '')}`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(`Не удалось обновить описание бота: ${(err as Error).message}`);
+    }
   }
 
   async onApplicationShutdown(): Promise<void> {
@@ -195,6 +227,8 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
         `<b>${BTN.settings}</b> — валюта сумм (BTC, USD, RUB) и часовой пояс`,
         '',
         'Можно просто прислать адрес или txid — я его проверю.',
+        '',
+        `💻 Исходный код: <a href="${this.config.sourceUrl}">GitHub</a>`,
       ].join('\n'),
       { ...HTML, reply_markup: this.menu },
     );
@@ -300,6 +334,7 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
       const name = timeZoneName(tz);
       keyboard.text(current.timeZone === tz ? `✅ ${name}` : name, `set:tz:${tz}`);
     }
+    keyboard.row().url('💻 Исходный код на GitHub', this.config.sourceUrl);
 
     const text = [
       '⚙️ <b>Настройки</b>',
