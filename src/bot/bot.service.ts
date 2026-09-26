@@ -15,7 +15,7 @@ import { RefsService } from './refs.service.js';
 const BTN = {
   sub: '➕ Подписаться',
   list: '📋 Мои адреса',
-  check: '🔍 Проверить сейчас',
+  check: '🔍 Проверить',
   block: '⏱ Последний блок',
   settings: '⚙️ Настройки',
 } as const;
@@ -23,7 +23,7 @@ const BTN = {
 // Старые надписи: у пользователей может остаться прежняя клавиатура до следующего /start
 const LEGACY_BTN = {
   sub: '➕ Подписаться на адрес',
-  check: '🔍 Баланс / транзакция сейчас',
+  check: ['🔍 Баланс / транзакция сейчас', '🔍 Проверить сейчас'],
   block: '⏱ Время с последнего блока',
 } as const;
 
@@ -124,7 +124,7 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
 
     bot.hears([BTN.sub, LEGACY_BTN.sub], (ctx) => this.askFor(ctx, 'sub'));
     bot.hears(BTN.list, (ctx) => this.showList(ctx));
-    bot.hears([BTN.check, LEGACY_BTN.check], (ctx) => this.askFor(ctx, 'check'));
+    bot.hears([BTN.check, ...LEGACY_BTN.check], (ctx) => this.askFor(ctx, 'check'));
     bot.hears([BTN.block, LEGACY_BTN.block], (ctx) => this.sendBlock(ctx));
     bot.hears(BTN.settings, (ctx) => this.showSettings(ctx));
 
