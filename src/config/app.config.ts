@@ -31,6 +31,9 @@ export const appConfig = registerAs('app', () => {
     yandexApiKey: env.YANDEX_API_KEY ?? '',
     yandexFolderId: env.YANDEX_FOLDER_ID ?? '',
     yandexOcrUrl: env.YANDEX_OCR_URL ?? 'https://ai.api.cloud.yandex.net/ocr/v1/recognizeText',
+    // Alice AI LLM — подстраховка, когда парсер не нашёл координат в тексте OCR
+    yandexLlmUrl: env.YANDEX_LLM_URL ?? 'https://llm.api.cloud.yandex.net/v1/chat/completions',
+    yandexLlmModel: env.YANDEX_LLM_MODEL ?? 'aliceai-llm',
     // Ссылка на исходники в справке, настройках и описании бота
     sourceUrl: env.SOURCE_URL ?? 'https://github.com/stlr00/BTC-CHECKER-BOT',
     pollIntervalMs: int(env.POLL_INTERVAL_SEC, 60) * 1000,

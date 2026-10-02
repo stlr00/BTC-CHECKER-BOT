@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCoordinates, parseCoordinates, yandexMapsUrl } from './coordinates.js';
+import { formatCoordinates, googleMapsUrl, parseCoordinates, yandexMapsUrl } from './coordinates.js';
 
 describe('parseCoordinates', () => {
   it('читает штамп NoteCam с подписями «Широта / Долгота»', () => {
@@ -9,6 +9,11 @@ describe('parseCoordinates', () => {
 
   it('переживает типичные артефакты OCR: запятую и пробел в дроби', () => {
     expect(parseCoordinates('Широта 54, 155977 Долгота: 37.619617')).toEqual({ lat: 54.155977, lon: 37.619617 });
+  });
+
+  it('понимает пробел вместо точки рядом с подписью (реальный ответ OCR со скриншота)', () => {
+    const text = '01:05\nШирота: 54 155977\nДолгота: 37.619617\nТочность: 4.66 м';
+    expect(parseCoordinates(text)).toEqual({ lat: 54.155977, lon: 37.619617, accuracyM: 4.66 });
   });
 
   it('понимает английские подписи и полушария', () => {
@@ -53,5 +58,11 @@ describe('yandexMapsUrl', () => {
       'https://yandex.ru/maps/?ll=37.619617,54.155977&pt=37.619617,54.155977&z=17&l=map',
     );
     expect(formatCoordinates(coords)).toBe('54.155977, 37.619617');
+  });
+
+  it('строит ссылку Google Maps: широта, затем долгота', () => {
+    expect(googleMapsUrl({ lat: 54.155977, lon: 37.619617 })).toBe(
+      'https://www.google.com/maps/search/?api=1&query=54.155977,37.619617',
+    );
   });
 });

@@ -11,7 +11,8 @@ import { escapeHtml, shortAddress, TIME_ZONES, timeZoneName } from './format.js'
 import { MessagesService } from './messages.service.js';
 import { parseTarget, type Target } from './parse.js';
 import { RefsService } from './refs.service.js';
-import { formatCoordinates, parseCoordinates, yandexMapsUrl, type Coordinates } from '../geo/coordinates.js';
+import { formatCoordinates, googleMapsUrl, parseCoordinates, yandexMapsUrl, type Coordinates } from '../geo/coordinates.js';
+import { GeoService, type LocatedCoordinates } from '../geo/geo.service.js';
 import { YandexOcrService, type OcrMimeType } from '../geo/yandex-ocr.service.js';
 
 const BTN = {
@@ -62,6 +63,7 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly storage: StorageService,
     private readonly refs: RefsService,
     private readonly ocr: YandexOcrService,
+    private readonly geo: GeoService,
   ) {
     this.bot = new Bot(config.botToken);
     this.bot.api.config.use(autoRetry());
@@ -307,8 +309,8 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
       if (!res.ok) throw new Error(`Не удалось скачать файл из Telegram: HTTP ${res.status}`);
       const text = await this.ocr.recognize(Buffer.from(await res.arrayBuffer()), mimeType);
 
-      const coords = parseCoordinates(text);
-      if (coords) return await this.replyWithMap(ctx, coords);
+      const located = await this.geo.locateInText(text);
+      if (located) return await this.replyWithMap(ctx, located.coords, located.source);
 
       const preview = text.trim().slice(0, 300);
       await ctx.reply(
@@ -323,14 +325,20 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     }
   }
 
-  private async replyWithMap(ctx: Context, coords: Coordinates): Promise<void> {
-    const url = yandexMapsUrl(coords);
+  private async replyWithMap(ctx: Context, coords: Coordinates, source: LocatedCoordinates['source'] = 'parser'): Promise<void> {
+    // Нативная точка Telegram: открывается во встроенной карте; точность Bot API принимает до 1500 м
+    const accuracy = coords.accuracyM && coords.accuracyM <= 1500 ? coords.accuracyM : undefined;
+    await ctx.replyWithLocation(coords.lat, coords.lon, accuracy ? { horizontal_accuracy: accuracy } : {});
+
+    const yandex = yandexMapsUrl(coords);
+    const google = googleMapsUrl(coords);
     const lines = [`📍 <b>Координаты:</b> <code>${formatCoordinates(coords)}</code>`];
     if (coords.accuracyM !== undefined) lines.push(`Точность: ${coords.accuracyM} м`);
-    lines.push('', `<a href="${url}">Открыть в Яндекс Картах</a>`);
+    if (source === 'llm') lines.push('🤖 Найдено с помощью Alice AI — проверьте точку на карте.');
+    lines.push('', `<a href="${yandex}">Яндекс Карты</a> · <a href="${google}">Google Maps</a>`);
     await ctx.reply(lines.join('\n'), {
       ...HTML,
-      reply_markup: new InlineKeyboard().url('🗺 Яндекс Карты', url),
+      reply_markup: new InlineKeyboard().url('🗺 Яндекс', yandex).url('🌍 Google', google),
     });
   }
 

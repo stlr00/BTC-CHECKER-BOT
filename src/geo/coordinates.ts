@@ -7,15 +7,17 @@ export interface Coordinates {
 
 const MINUS = '[-−–]';
 // Число с дробной частью; OCR иногда вставляет пробел вокруг разделителя: «54. 155977»
-const DECIMAL = String.raw`${MINUS}?\d{1,3}\s?[.,]\s?\d+`;
+// Рядом с подписью OCR может потерять точку совсем: «Широта: 54 155977». Там пробел между
+// градусами и длинной дробной частью — это разделитель (в паре чисел без подписей так нельзя)
+const LABELED_DECIMAL = String.raw`${MINUS}?\d{1,3}(?:\s?[.,]\s?\d+|\s\d{3,})`;
 const NOT_LETTER_BEFORE = '(?<![a-zа-яё])';
 
 const LAT_LABEL = new RegExp(
-  String.raw`${NOT_LETTER_BEFORE}(?:широта|шир\.|latitude|lat)\s*[:=]?\s*(${DECIMAL})\s*°?\s*([NSСЮ])?(?![a-zа-яё])`,
+  String.raw`${NOT_LETTER_BEFORE}(?:широта|шир\.|latitude|lat)\s*[:=]?\s*(${LABELED_DECIMAL})\s*°?\s*([NSСЮ])?(?![a-zа-яё])`,
   'iu',
 );
 const LON_LABEL = new RegExp(
-  String.raw`${NOT_LETTER_BEFORE}(?:долгота|долг\.|longitude|long|lon|lng)\s*[:=]?\s*(${DECIMAL})\s*°?\s*([EWВЗ])?(?![a-zа-яё])`,
+  String.raw`${NOT_LETTER_BEFORE}(?:долгота|долг\.|longitude|long|lon|lng)\s*[:=]?\s*(${LABELED_DECIMAL})\s*°?\s*([EWВЗ])?(?![a-zа-яё])`,
   'iu',
 );
 const ACCURACY = /(?:точность|accuracy|погрешность)\s*[:=]?\s*±?\s*(\d+(?:[.,]\d+)?)\s*(?:м|m)(?![a-zа-яё])/iu;
@@ -36,6 +38,12 @@ function toNumber(raw: string): number {
   return Number(raw.replace(/\s/g, '').replace(',', '.').replace(/^[−–]/, '-'));
 }
 
+/** Число из LABELED_DECIMAL: «54.155977», «54, 155977» и «54 155977» → 54.155977. */
+function labeledNumber(raw: string): number {
+  const m = /^([-−–]?)(\d{1,3})\s*[.,]?\s*(\d+)$/u.exec(raw.trim());
+  return m ? Number(`${m[1] ? '-' : ''}${m[2]}.${m[3]}`) : Number.NaN;
+}
+
 function applyHemisphere(value: number, hemisphere: string | undefined): number {
   return hemisphere && /[SWЮЗ]/iu.test(hemisphere) ? -Math.abs(value) : value;
 }
@@ -48,7 +56,7 @@ function fromLabels(text: string): Coordinates | null {
   const lat = LAT_LABEL.exec(text);
   const lon = LON_LABEL.exec(text);
   if (!lat || !lon) return null;
-  return { lat: applyHemisphere(toNumber(lat[1]), lat[2]), lon: applyHemisphere(toNumber(lon[1]), lon[2]) };
+  return { lat: applyHemisphere(labeledNumber(lat[1]), lat[2]), lon: applyHemisphere(labeledNumber(lon[1]), lon[2]) };
 }
 
 function fromDms(text: string): Coordinates | null {
@@ -92,4 +100,9 @@ export function formatCoordinates({ lat, lon }: Coordinates): string {
 export function yandexMapsUrl({ lat, lon }: Coordinates, zoom = 17): string {
   const point = `${lon.toFixed(6)},${lat.toFixed(6)}`;
   return `https://yandex.ru/maps/?ll=${point}&pt=${point}&z=${zoom}&l=map`;
+}
+
+/** Ссылка на точку в Google Maps (Maps URLs API: широта, затем долгота). */
+export function googleMapsUrl({ lat, lon }: Coordinates): string {
+  return `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lon.toFixed(6)}`;
 }

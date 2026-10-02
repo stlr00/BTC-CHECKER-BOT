@@ -1,0 +1,53 @@
+name: Test & deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Деплои идут строго по очереди; начатый не отменяется
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: stlrvpneasy.ru
+      # Публичный ключ сервера: подключаемся, только если хост тот самый
+      DEPLOY_KNOWN_HOSTS: stlrvpneasy.ru ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICfJ1SOdNpa366zMTkiYqFbHMT27v6bpqYO6HeJ8/WGX
+    steps:
+      - name: Prepare SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # На сервере ключ привязан к deploy/deploy.sh (forced command): секреты уходят в stdin,
+      # скрипт обновляет .env, код, собирает и перезапускает бота
+      - name: Deploy
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          YANDEX_API_KEY: ${{ secrets.YANDEX_API_KEY }}
+          YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
+        run: |
+          printf 'BOT_TOKEN=%s\nYANDEX_API_KEY=%s\nYANDEX_FOLDER_ID=%s\n' \
+            "$BOT_TOKEN" "$YANDEX_API_KEY" "$YANDEX_FOLDER_ID" \
+            | ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "root@$DEPLOY_HOST"
