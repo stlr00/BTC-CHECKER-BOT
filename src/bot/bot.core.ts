@@ -133,6 +133,8 @@ export class BotCore implements OnApplicationBootstrap, OnApplicationShutdown {
     if (command) return this.onCommand(ctx, command[1].toLowerCase(), (command[2] ?? '').trim());
 
     const label = text.trim();
+    // «Начать» — стандартная кнопка VK при первом открытии диалога с сообществом
+    if (/^(начать|start)$/i.test(label)) return this.help(ctx);
     if (label === BTN.sub || (LEGACY_BTN.sub as readonly string[]).includes(label)) return this.askFor(ctx, 'sub');
     if (label === BTN.list) return this.showList(ctx);
     if (label === BTN.check || (LEGACY_BTN.check as readonly string[]).includes(label)) return this.askFor(ctx, 'check');

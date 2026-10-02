@@ -130,6 +130,11 @@ describe('BotCore', () => {
     expect(text(replies[0])).toContain('Бот следит за биткоин-адресами');
   });
 
+  it('кнопка VK «Начать» показывает справку', async () => {
+    const { replies } = await vk.emit({ kind: 'text', text: 'Начать' });
+    expect(replies[0].menu).toBe(true);
+  });
+
   it('понимает команды с упоминанием бота: /check@bot <адрес>', async () => {
     const { replies } = await tg.emit({ kind: 'text', text: `/check@btc_checker_bot ${ADDRESS}` });
     expect(text(replies[0])).toBe(`отчёт по ${ADDRESS}`);
