@@ -51,9 +51,12 @@ jobs:
       - name: Deploy
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          VK_TOKEN: ${{ secrets.VK_TOKEN }}
+          VK_GROUP_ID: ${{ secrets.VK_GROUP_ID }}
           YANDEX_API_KEY: ${{ secrets.YANDEX_API_KEY }}
           YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
+        # Пустые секреты (например, VK ещё не настроен) скрипт на сервере пропускает
         run: |
-          printf 'BOT_TOKEN=%s\nYANDEX_API_KEY=%s\nYANDEX_FOLDER_ID=%s\n' \
-            "$BOT_TOKEN" "$YANDEX_API_KEY" "$YANDEX_FOLDER_ID" \
+          printf 'BOT_TOKEN=%s\nVK_TOKEN=%s\nVK_GROUP_ID=%s\nYANDEX_API_KEY=%s\nYANDEX_FOLDER_ID=%s\n' \
+            "$BOT_TOKEN" "$VK_TOKEN" "$VK_GROUP_ID" "$YANDEX_API_KEY" "$YANDEX_FOLDER_ID" \
             | ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "root@$DEPLOY_HOST"

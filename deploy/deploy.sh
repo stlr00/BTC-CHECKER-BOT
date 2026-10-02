@@ -10,7 +10,7 @@ set -euo pipefail
 
 APP_DIR=/root/BTC-CHECKER-BOT
 SERVICE=btc-checker-bot
-ALLOWED_KEYS='BOT_TOKEN|YANDEX_API_KEY|YANDEX_FOLDER_ID'
+ALLOWED_KEYS='BOT_TOKEN|VK_TOKEN|VK_GROUP_ID|YANDEX_API_KEY|YANDEX_FOLDER_ID'
 
 exec 9>/run/lock/btc-checker-bot-deploy.lock
 flock -w 300 9 || { echo "❌ Другой деплой всё ещё идёт" >&2; exit 1; }
@@ -44,7 +44,8 @@ npm run build --silent
 since=$(date '+%Y-%m-%d %H:%M:%S')
 systemctl restart "$SERVICE"
 for _ in $(seq 1 30); do
-  if journalctl -u "$SERVICE" --since "$since" --no-pager -o cat | grep -q 'Бот @.* запущен'; then
+  # «Бот @name запущен» (Telegram) или «Бот VK «…» (club…) запущен»
+  if journalctl -u "$SERVICE" --since "$since" --no-pager -o cat | grep -q 'Бот .* запущен'; then
     echo "✅ Бот запущен"
     exit 0
   fi

@@ -4,10 +4,6 @@ import type { ChatSettings, Currency, TimeZone } from '../storage/storage.servic
 
 const SATS = 100_000_000;
 
-export function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 export function btc(sats: number, { sign = false } = {}): string {
   const abs = (Math.abs(sats) / SATS).toFixed(8);
   const prefix = sats < 0 ? '−' : sign && sats > 0 ? '+' : '';

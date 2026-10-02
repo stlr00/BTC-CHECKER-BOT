@@ -14,14 +14,23 @@ function int(value: string | undefined, fallback: number): number {
 
 export const appConfig = registerAs('app', () => {
   const env = process.env;
-  if (!env.BOT_TOKEN) {
-    throw new Error('BOT_TOKEN не задан. Скопируйте .env.example в .env и укажите токен от @BotFather.');
+  const vkGroupId = int(env.VK_GROUP_ID, 0);
+  if (!env.BOT_TOKEN && !env.VK_TOKEN) {
+    throw new Error(
+      'Не задан ни один мессенджер: укажите BOT_TOKEN (Telegram, от @BotFather) и/или VK_TOKEN (ключ сообщества VK). ' +
+        'Пример — в .env.example.',
+    );
   }
   // Сайт mempool (для ссылок), REST API и WebSocket выводятся из одного базового URL
   const mempoolUrl = (env.MEMPOOL_URL ?? 'https://mempool.space').replace(/\/+$/, '');
 
   return {
-    botToken: env.BOT_TOKEN,
+    // Telegram: пусто — транспорт выключен
+    botToken: env.BOT_TOKEN ?? '',
+    // VK: ключ доступа сообщества с правом «сообщения сообщества»; пусто — транспорт выключен
+    vkToken: env.VK_TOKEN ?? '',
+    // ID сообщества VK; 0 — определить по ключу сообщества при старте
+    vkGroupId,
     mempoolUrl,
     mempoolApi: env.MEMPOOL_API ?? `${mempoolUrl}/api`,
     mempoolWs: env.MEMPOOL_WS ?? `${mempoolUrl.replace(/^http/, 'ws')}/api/v1/ws`,
@@ -40,8 +49,9 @@ export const appConfig = registerAs('app', () => {
     requestGapMs: int(env.REQUEST_GAP_MS, 250),
     dataFile: env.DATA_FILE ?? 'data/state.json',
     maxAddressesPerChat: int(env.MAX_ADDRESSES_PER_CHAT, 20),
-    // Пусто = бот доступен всем
-    allowedUserIds: new Set(list(env.ALLOWED_USER_IDS).map(Number)),
+    // ID пользователей Telegram / VK через запятую; пусто = бот на этой платформе доступен всем
+    allowedUserIds: new Set(list(env.ALLOWED_USER_IDS)),
+    allowedVkUserIds: new Set(list(env.ALLOWED_VK_USER_IDS)),
   };
 });
 

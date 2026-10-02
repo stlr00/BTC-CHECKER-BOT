@@ -1,6 +1,6 @@
 # btc-mempool-bot
 
-Telegram-бот на NestJS + TypeScript. Следит за движением средств на биткоин-адресах через [mempool.space API](https://mempool.space/docs/api).
+Бот для Telegram и VK на NestJS + TypeScript. Следит за движением средств на биткоин-адресах через [mempool.space API](https://mempool.space/docs/api).
 
 ## Что умеет
 
@@ -19,7 +19,7 @@ Telegram-бот на NestJS + TypeScript. Следит за движением �
 
 ```bash
 npm install
-cp .env.example .env   # указать BOT_TOKEN
+cp .env.example .env   # указать BOT_TOKEN и/или VK_TOKEN
 npm run build
 npm start
 ```
@@ -37,7 +37,9 @@ src/
   storage/    подписки и известные транзакции в JSON-файле
   watcher/    отслеживание изменений → событие watcher.tx
   geo/        координаты: парсер текста, ссылка на Яндекс Карты, клиент Vision OCR
-  bot/        grammy: меню, команды, тексты сообщений
+  transport/  транспортный слой: abstract ChatTransport, реализации telegram/ (grammy) и vk/ (vk-io),
+              платформонезависимая разметка RichText
+  bot/        ядро: команды, меню, сценарии, тексты сообщений — без привязки к мессенджеру
 ```
 
 Источник истины — REST `GET /address/:addr/txs`. Бот сравнивает статусы транзакций с запомненными и из разницы
@@ -61,7 +63,8 @@ src/
 |---|---|
 | `DEPLOY_SSH_KEY` | приватный SSH-ключ деплоя |
 | `DEPLOY_KNOWN_HOSTS` | строка known_hosts сервера (`хост ssh-ed25519 AAAA…`, её даёт `ssh-keyscan -t ed25519 <хост>`); адрес сервера берётся из неё |
-| `BOT_TOKEN` | токен Telegram-бота |
+| `BOT_TOKEN` | токен Telegram-бота (необязательно) |
+| `VK_TOKEN` | ключ сообщества VK (необязательно; ID сообщества бот определит сам) |
 | `YANDEX_API_KEY`, `YANDEX_FOLDER_ID` | доступ к Vision OCR и Alice AI LLM |
 
 Запустить деплой вручную: Actions → Test & deploy → Run workflow.

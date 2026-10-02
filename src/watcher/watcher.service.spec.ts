@@ -10,7 +10,7 @@ import { WatcherService } from './watcher.service.js';
 
 const ME = 'bc1qme000000000000000000000000000000000';
 const OTHER = 'bc1qother0000000000000000000000000000000';
-const CHAT = 42;
+const CHAT = 'tg:42';
 
 function tx(txid: string, { value = 10_000, confirmed = false, height = 0, incoming = true } = {}): Tx {
   const mine = { scriptpubkey_address: ME, value };
@@ -125,10 +125,10 @@ describe('WatcherService', () => {
 
   it('удаляет адрес из хранилища после отписки последнего чата', async () => {
     await watcher.subscribe(CHAT, ME);
-    await watcher.subscribe(7, ME);
+    await watcher.subscribe('vk:7', ME);
     expect(watcher.unsubscribe(CHAT, ME)).toBe(true);
     expect(storage.get(ME)).toBeDefined();
-    watcher.unsubscribe(7, ME);
+    watcher.unsubscribe('vk:7', ME);
     expect(storage.get(ME)).toBeUndefined();
   });
 });

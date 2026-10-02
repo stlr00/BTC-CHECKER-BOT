@@ -5,7 +5,7 @@ import { appConfig, type AppConfig } from '../config/app.config.js';
 import { MempoolApiError, MempoolApiService } from '../mempool/mempool-api.service.js';
 import { MempoolSocketService } from '../mempool/mempool-socket.service.js';
 import { MempoolEvents, type Block, type Tx } from '../mempool/mempool.types.js';
-import { StorageService, type TrackedTx } from '../storage/storage.service.js';
+import { StorageService, type ChatKey, type TrackedTx } from '../storage/storage.service.js';
 import { netForAddress } from './net.js';
 import { WATCHER_TX_EVENT, type WatcherTxEvent } from './watcher.events.js';
 
@@ -47,7 +47,7 @@ export class WatcherService implements OnApplicationBootstrap, OnModuleDestroy {
    * Подписка чата на адрес. Текущие транзакции запоминаются без уведомлений,
    * неподтверждённые остаются под наблюдением до первого подтверждения.
    */
-  async subscribe(chatId: number, address: string, label: string | null = null) {
+  async subscribe(chatId: ChatKey, address: string, label: string | null = null) {
     let rec = this.storage.get(address);
     const existed = Boolean(rec?.chats[chatId]);
     if (!rec) {
@@ -63,7 +63,7 @@ export class WatcherService implements OnApplicationBootstrap, OnModuleDestroy {
     return { existed, pending };
   }
 
-  unsubscribe(chatId: number, address: string): boolean {
+  unsubscribe(chatId: ChatKey, address: string): boolean {
     const rec = this.storage.get(address);
     if (!rec?.chats[chatId]) return false;
     delete rec.chats[chatId];
@@ -73,7 +73,7 @@ export class WatcherService implements OnApplicationBootstrap, OnModuleDestroy {
     return true;
   }
 
-  unsubscribeChat(chatId: number): void {
+  unsubscribeChat(chatId: ChatKey): void {
     for (const { address } of this.storage.addressesOf(chatId)) this.unsubscribe(chatId, address);
   }
 
