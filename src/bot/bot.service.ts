@@ -11,6 +11,8 @@ import { escapeHtml, shortAddress, TIME_ZONES, timeZoneName } from './format.js'
 import { MessagesService } from './messages.service.js';
 import { parseTarget, type Target } from './parse.js';
 import { RefsService } from './refs.service.js';
+import { formatCoordinates, parseCoordinates, yandexMapsUrl, type Coordinates } from '../geo/coordinates.js';
+import { YandexOcrService, type OcrMimeType } from '../geo/yandex-ocr.service.js';
 
 const BTN = {
   sub: '➕ Подписаться',
@@ -31,6 +33,8 @@ const CURRENCIES: Record<Currency, string> = { btc: '₿ BTC', usd: '$ USD', rub
 
 const HTML = { parse_mode: 'HTML', link_preview_options: { is_disabled: true } } as const;
 const MAX_LABEL = 40;
+// Лимит Bot API на скачивание файлов — 20 МБ; для фото с текстом этого с запасом хватает
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 
 type PendingAction = 'sub' | 'check';
 
@@ -57,6 +61,7 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly watcher: WatcherService,
     private readonly storage: StorageService,
     private readonly refs: RefsService,
+    private readonly ocr: YandexOcrService,
   ) {
     this.bot = new Bot(config.botToken);
     this.bot.api.config.use(autoRetry());
@@ -200,6 +205,18 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     });
 
     bot.on('message:text', (ctx) => this.onText(ctx, ctx.message.text));
+    bot.on('message:photo', (ctx) => this.onImage(ctx, 'JPEG', ctx.message.photo.at(-1)!.file_size));
+    bot.on('message:document', async (ctx, next) => {
+      // Картинка, отправленная «файлом», приходит без сжатия — для OCR это даже лучше
+      const { mime_type, file_size } = ctx.message.document;
+      if (mime_type === 'image/jpeg') return this.onImage(ctx, 'JPEG', file_size);
+      if (mime_type === 'image/png') return this.onImage(ctx, 'PNG', file_size);
+      if (mime_type?.startsWith('image/') && ctx.chat.type === 'private') {
+        await ctx.reply('Этот формат не поддерживается. Пришлите фото обычным способом (не файлом) или в JPEG / PNG.');
+        return;
+      }
+      await next();
+    });
 
     bot.catch(({ error, ctx }) => {
       this.logger.error(`Ошибка обработки update ${ctx.update.update_id}: ${(error as Error).message}`);
@@ -227,6 +244,8 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
         `<b>${BTN.settings}</b> — валюта сумм (BTC, USD, RUB) и часовой пояс`,
         '',
         'Можно просто прислать адрес или txid — я его проверю.',
+        '',
+        '📷 Пришлите фото с GPS-координатами на нём (например, со штампом NoteCam) — верну ссылку на Яндекс Карты.',
         '',
         `💻 Исходный код: <a href="${this.config.sourceUrl}">GitHub</a>`,
       ].join('\n'),
@@ -261,7 +280,58 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     // Без явного действия реагируем только в личке, чтобы не мешать в группах
     if (ctx.chat?.type !== 'private') return;
     if (parseTarget(text.split(/\s+/)[0])) return this.checkFromText(ctx, text);
+    const coords = parseCoordinates(text);
+    if (coords) return this.replyWithMap(ctx, coords);
     await ctx.reply('Не понял 🤔 Пришлите адрес или txid, либо воспользуйтесь кнопками меню.', { reply_markup: this.menu });
+  }
+
+  /** Фото с координатами на нём → распознавание текста → ссылка на Яндекс Карты. */
+  private async onImage(ctx: Context, mimeType: OcrMimeType, size: number | undefined): Promise<void> {
+    // Каждое распознавание платное, поэтому в группах фото не обрабатываем
+    if (ctx.chat?.type !== 'private') return;
+    if (!this.ocr.enabled) {
+      await ctx.reply('📷 Распознавание координат на фото не настроено (нужен ключ Yandex Vision OCR).');
+      return;
+    }
+    if (size && size > MAX_IMAGE_BYTES) {
+      await ctx.reply(`Файл слишком большой: максимум ${MAX_IMAGE_BYTES / 1024 / 1024} МБ.`);
+      return;
+    }
+
+    await ctx.replyWithChatAction('typing');
+    try {
+      const file = await ctx.getFile();
+      const res = await fetch(`https://api.telegram.org/file/bot${this.config.botToken}/${file.file_path}`, {
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!res.ok) throw new Error(`Не удалось скачать файл из Telegram: HTTP ${res.status}`);
+      const text = await this.ocr.recognize(Buffer.from(await res.arrayBuffer()), mimeType);
+
+      const coords = parseCoordinates(text);
+      if (coords) return await this.replyWithMap(ctx, coords);
+
+      const preview = text.trim().slice(0, 300);
+      await ctx.reply(
+        preview
+          ? `🤷 Не нашёл координат на фото. Распознанный текст:\n<code>${escapeHtml(preview)}</code>`
+          : '🤷 Не нашёл на фото текста. Попробуйте прислать снимок крупнее или файлом без сжатия.',
+        HTML,
+      );
+    } catch (err) {
+      this.logger.error(`Распознавание фото не удалось: ${(err as Error).message}`);
+      await ctx.reply('😵 Не получилось распознать фото, попробуйте ещё раз чуть позже.');
+    }
+  }
+
+  private async replyWithMap(ctx: Context, coords: Coordinates): Promise<void> {
+    const url = yandexMapsUrl(coords);
+    const lines = [`📍 <b>Координаты:</b> <code>${formatCoordinates(coords)}</code>`];
+    if (coords.accuracyM !== undefined) lines.push(`Точность: ${coords.accuracyM} м`);
+    lines.push('', `<a href="${url}">Открыть в Яндекс Картах</a>`);
+    await ctx.reply(lines.join('\n'), {
+      ...HTML,
+      reply_markup: new InlineKeyboard().url('🗺 Яндекс Карты', url),
+    });
   }
 
   private async subscribeFromText(ctx: Context, text: string): Promise<void> {

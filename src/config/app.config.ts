@@ -27,6 +27,10 @@ export const appConfig = registerAs('app', () => {
     mempoolWs: env.MEMPOOL_WS ?? `${mempoolUrl.replace(/^http/, 'ws')}/api/v1/ws`,
     // Курс ЦБ РФ в JSON (зеркало cbr.ru), нужен для пересчёта в рубли
     rubRateUrl: env.RUB_RATE_URL ?? 'https://www.cbr-xml-daily.ru/daily_json.js',
+    // Yandex Vision OCR: распознавание координат на фото. Без ключа функция выключена
+    yandexApiKey: env.YANDEX_API_KEY ?? '',
+    yandexFolderId: env.YANDEX_FOLDER_ID ?? '',
+    yandexOcrUrl: env.YANDEX_OCR_URL ?? 'https://ai.api.cloud.yandex.net/ocr/v1/recognizeText',
     // Ссылка на исходники в справке, настройках и описании бота
     sourceUrl: env.SOURCE_URL ?? 'https://github.com/stlr00/BTC-CHECKER-BOT',
     pollIntervalMs: int(env.POLL_INTERVAL_SEC, 60) * 1000,
