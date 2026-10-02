@@ -26,19 +26,25 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    env:
-      DEPLOY_HOST: stlrvpneasy.ru
-      # Публичный ключ сервера: подключаемся, только если хост тот самый
-      DEPLOY_KNOWN_HOSTS: stlrvpneasy.ru ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICfJ1SOdNpa366zMTkiYqFbHMT27v6bpqYO6HeJ8/WGX
     steps:
+      # DEPLOY_KNOWN_HOSTS — строка known_hosts сервера («хост тип ключ»): подключаемся, только если
+      # хост тот самый. Адрес сервера берётся из первого поля этой же строки
       - name: Prepare SSH
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
+          if [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$DEPLOY_KNOWN_HOSTS" ]; then
+            echo "::error::Нужны секреты DEPLOY_SSH_KEY и DEPLOY_KNOWN_HOSTS"
+            exit 1
+          fi
           install -m 700 -d ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          host=$(printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | awk 'NR==1 {print $1}')
+          echo "::add-mask::$host"
+          echo "DEPLOY_HOST=$host" >> "$GITHUB_ENV"
 
       # На сервере ключ привязан к deploy/deploy.sh (forced command): секреты уходят в stdin,
       # скрипт обновляет .env, код, собирает и перезапускает бота

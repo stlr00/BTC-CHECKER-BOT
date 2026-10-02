@@ -60,6 +60,7 @@ src/
 | Секрет | Назначение |
 |---|---|
 | `DEPLOY_SSH_KEY` | приватный SSH-ключ деплоя |
+| `DEPLOY_KNOWN_HOSTS` | строка known_hosts сервера (`хост ssh-ed25519 AAAA…`, её даёт `ssh-keyscan -t ed25519 <хост>`); адрес сервера берётся из неё |
 | `BOT_TOKEN` | токен Telegram-бота |
 | `YANDEX_API_KEY`, `YANDEX_FOLDER_ID` | доступ к Vision OCR и Alice AI LLM |
 
